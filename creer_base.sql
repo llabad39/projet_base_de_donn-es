@@ -8,7 +8,7 @@ DROP TABLE IF EXISTS Representations_exterieures CASCADE;
 DROP TABLE IF EXISTS Representations_interieures CASCADE;
 DROP TABLE IF EXISTS Theatres CASCADE;
 DROP TABLE IF EXISTS Achats CASCADE;
-DROP TABLE IF EXISTS Billets CASCADE;
+DROP TABLE IF EXISTS Reservations CASCADE;
 DROP TABLE IF EXISTS Clients CASCADE;
 
 CREATE TABLE Organismes (
@@ -54,13 +54,12 @@ CREATE TABLE Couts (
 CREATE TABLE Representations (
     id_representation serial PRIMARY KEY,
     id_piece serial  REFERENCES Pieces (id_piece),
-    date_representation  DATE NOT NULL,
-    adresse varchar (100) NOT NULL,
-    nb_places integer  NOT NULL check(nb_places >= 0)
+    date_representation  DATE NOT NULL
 );
 
 CREATE TABLE Representations_exterieures (
-  id_representation serial PRIMARY KEY REFERENCES Representations (id_representation)
+  id_representation serial PRIMARY KEY REFERENCES Representations (id_representation),
+  prix integer NOT NULL
 );
 
 CREATE TABLE Theatres (
@@ -71,7 +70,9 @@ CREATE TABLE Theatres (
 
 CREATE TABLE Representations_interieures (
   id_representation serial PRIMARY KEY REFERENCES Representations (id_representation),
-  id_theatre serial REFERENCES Theatres (id_theatre)
+  id_theatre serial REFERENCES Theatres (id_theatre),
+  nb_places integer  NOT NULL check(nb_places >= 0)
+
 );
 
 
@@ -90,12 +91,13 @@ CREATE TABLE Clients (
   nom varchar (100) NOT NULL,
   adresse varchar (100) NOT NULL
 );
-CREATE TABLE Billets(
+CREATE TABLE Reservations(
   id_representation serial REFERENCES Representations_interieures (id_representation),
   id_client serial REFERENCES Clients (id_client),
   date_achat DATE NOT NULL DEFAULT CURRENT_DATE,
   reduction integer  NOT NULL check(reduction >= 0),
   prix integer  NOT NULL check(prix >= 0),
+  status varchar(50) NOT NULL check (status in ('en cours', 'payer') ),
   PRIMARY KEY (id_representation, id_client)
 /*  CHECK ()*/
 );
