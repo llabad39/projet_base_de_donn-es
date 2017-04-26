@@ -19,8 +19,8 @@ CREATE TABLE Organismes (
 CREATE TABLE Pieces (
     id_piece serial PRIMARY KEY,
     nom varchar (50) NOT NULL,
-    prix_basique integer NOT NULL check(cout_piece >= 0),
-    prix_reduction integer  NOT NULL check(cout_piece >= 0)
+    prix_basique integer NOT NULL check(prix_basique >= 0),
+    prix_reduction integer  NOT NULL
     /*location varchar(25) check (location in ('north', 'south', 'west', 'east', 'northeast', 'southeast', 'southwest', 'northwest')),
     install_date date*/
 );
@@ -29,7 +29,7 @@ CREATE TABLE Subventions(
   id_organisme serial REFERENCES Organismes,
   id_piece serial REFERENCES Pieces,
   date_subvention DATE NOT NULL DEFAULT CURRENT_DATE,
-  valeur_don integer  NOT NULL check(cout_piece >= 0),
+  valeur_don integer  NOT NULL check(valeur_don >= 0),
   PRIMARY KEY (id_organisme, id_piece)
 /*  CHECK ()*/
 );
@@ -45,7 +45,7 @@ CREATE TABLE Pieces_creees (
 CREATE TABLE Couts (
   id_cout serial PRIMARY KEY,
   id_piece serial REFERENCES Pieces_creees,
-  prix integer CHECK (cout_piece >= 0),
+  prix integer CHECK (prix >= 0),
   date_cout DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
@@ -77,7 +77,7 @@ CREATE TABLE Achats(
   id_representation serial REFERENCES Representations_interieures,
   id_theatre serial REFERENCES Theatres,
   date_achat DATE NOT NULL DEFAULT CURRENT_DATE,
-  cout_achat integer  NOT NULL check(nb_places >= 0),
+  cout_achat integer  NOT NULL check(cout_achat >= 0),
   PRIMARY KEY (id_representation, id_theatre)
 /*  CHECK ()*/
 );
