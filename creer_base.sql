@@ -16,7 +16,7 @@ CREATE TABLE Organismes (
 );
 
 CREATE TABLE Pieces (
-    id_piece serial PRIMARY KEY,
+    id_piece integer PRIMARY KEY,
     nom varchar (50) NOT NULL,
     prix_normal integer NOT NULL check(prix_normal >= 0),
     prix_reduit integer  NOT NULL
