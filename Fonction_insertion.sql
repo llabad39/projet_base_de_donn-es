@@ -81,3 +81,55 @@ EXCEPTION
    END;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION ajout_unexisting_theatre(nom_t varchar(50),ville_t varchar(50)) RETURNS integer AS $$
+  DECLARE
+    exist Theatres%rowtype;
+    id integer;
+    BEGIN
+    SELECT * INTO exist
+      FROM Theatres
+     WHERE nom = nom_t and  ville = ville_tl;
+     IF NOT FOUND THEN
+      INSERT INTO Theatres(nom,ville)
+      VALUES
+       (nom_t,ville_t);
+     END IF;
+     SELECT id_theatre Into id
+     FROM Theatres
+     WHERE nom = nom_t and  ville = ville_tl;
+     RETURN id;
+     END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION ajout_unexisting_piece(nom_p varchar(50), prix_norm integer,prix_red integer) RETURNS integer AS $$
+  DECLARE
+    exist Pieces%rowtype;
+    id integer;
+    BEGIN
+    SELECT * INTO exist
+      FROM Pieces
+     WHERE nom = nom_p;
+     IF NOT FOUND THEN
+      INSERT INTO Pieces(nom,prix_reduit,prix_normal)
+      VALUES
+        (nom_p,prix_red,prix_norm);
+      END IF;
+       SELECT id_piece Into id
+     FROM Pieces
+     WHERE nom = nom_p;
+     RETURN id;
+     END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION buy_representation(t_name varchar(50),t_ville varchar(50),nom_p varchar(50),prix_norm integer,prix_red integer,prix_ach integer,date_rep date) RETURNS VOID AS $$
+DECLARE
+  id_p integer;
+  id_t integer;
+  BEGIN
+  id_p = ajout_unexisting_theatre(t_name,t_ville);
+     END;
+$$ LANGUAGE plpgsql;
+
+
+

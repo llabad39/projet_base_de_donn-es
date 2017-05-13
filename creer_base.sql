@@ -61,7 +61,7 @@ CREATE TABLE Representations_exterieures (
 CREATE TABLE Theatres (
   id_theatre serial PRIMARY KEY ,
   nom varchar (100) NOT NULL,
-  adresse varchar (100) NOT NULL
+  ville varchar (100) NOT NULL
 );
 
 CREATE TABLE Representations_interieures (
@@ -98,6 +98,8 @@ CREATE TABLE Reservations(
   date_reservation DATE  check(date_reservation =  CURRENT_DATE),
   PRIMARY KEY (id_representation, id_client)
 );
+
+
 /*---------------------------------------------------  -avant  -----------------------------*/
 /*DROP TABLE IF EXISTS Organismes CASCADE ;
 DROP TABLE IF EXISTS Pieces CASCADE;
