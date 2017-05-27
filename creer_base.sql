@@ -10,16 +10,19 @@ DROP TABLE IF EXISTS Theatres CASCADE;
 DROP TABLE IF EXISTS Achats CASCADE;
 DROP TABLE IF EXISTS Reservations CASCADE;
 DROP TABLE IF EXISTS Clients CASCADE;
+DROP TABLE IF EXISTS HISTORIQUE_PIECE CASCADE;
+DROP TABLE IF EXISTS HISTORIQUE_DATE CASCADE;
+
 
 CREATE TABLE Organismes (
     nom_organisme varchar (50) PRIMARY KEY
 );
 
 CREATE TABLE Pieces (
-    id_piece integer PRIMARY KEY,
+    id_piece serial  PRIMARY KEY,
     nom varchar (50) NOT NULL,
     prix_normal integer NOT NULL check(prix_normal >= 0),
-    prix_reduit integer  NOT NULL
+    prix_reduit integer  NOT NULL check(prix_normal >= 0)
 );
 
 CREATE TABLE Subventions(
@@ -48,7 +51,7 @@ CREATE TABLE Couts (
 
 CREATE TABLE Representations (
     id_representation serial PRIMARY KEY,
-    id_piece serial  REFERENCES Pieces (id_piece),
+    id_piece integer REFERENCES Pieces (id_piece),
     date_representation  DATE NOT NULL
 );
 
@@ -69,8 +72,8 @@ CREATE TABLE Representations_interieures (
   nb_places integer  NOT NULL check(nb_places >= 0),
   nb_places_vendues_tarif_normal integer  NOT NULL DEFAULT 0 check(nb_places_vendues_tarif_normal >= 0 and nb_places_vendues_tarif_normal < nb_places ),
   nb_places_vendues_tarif_reduit integer  NOT NULL DEFAULT 0 check(nb_places_vendues_tarif_reduit >= 0  and nb_places_vendues_tarif_reduit < nb_places ),
-  nb_places_restantes integer  NOT NULL check(nb_places_restantes >= 0 and nb_places_restantes < nb_places)
-
+  nb_places_restante integer  NOT NULL check(nb_places_restante >= 0 and nb_places_restante <= nb_places),
+  debut_vente DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
 
@@ -92,11 +95,20 @@ CREATE TABLE Clients (
 CREATE TABLE Reservations(
   id_representation integer REFERENCES Representations_interieures (id_representation),
   id_client integer REFERENCES Clients (id_client),
-  nb_places_reservees_tarif_normal integer NOT NULL check(nb_places_reservees_tarif_normal >= 0),
-  nb_places_reservees_tarif_reduit integer NOT NULL check(nb_places_reservees_tarif_reduit >= 0),
+  nb_places_reservees integer NOT NULL check(nb_places_reservees > 0),
   date_reservation DATE  check(date_reservation =  CURRENT_DATE),
   date_peremption DATE check(date_peremption>= date_reservation),
   PRIMARY KEY (id_representation, id_client)
 );
+CREATE TABLE HISTORIQUE_PIECE(id_piece integer PRIMARY KEY,
+  nom varchar(100) NOT NULL,
+  nb_places_vendues_tarif_reduit integer NOT NULL DEFAULT 0,
+  nb_places_vendues_tarif_normal integer NOT NULL DEFAULT 0,
+  recette_piece integer NOT NULL DEFAULT 0,
+  depense_piece integer NOT NULL DEFAULT 0);
+
+CREATE TABLE HISTORIQUE_DATE(date_historique DATE PRIMARY KEY,
+  recette_mois integer NOT NULL DEFAULT 0,
+  depense_mois integer NOT NULL DEFAULT 0);
 
 
