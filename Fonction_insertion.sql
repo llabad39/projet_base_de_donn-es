@@ -29,7 +29,8 @@ DROP TRIGGER before_add_subvention ON subventions;
 DROP TRIGGER after_add_subvention ON subventions;
 DROP TRIGGER after_cout ON couts;
 DROP TRIGGER after_selling ON Representations_exterieures;
-
+DROP TRIGGER buy_places_before On Representations_interieures;
+DROP TRIGGER buy_places_after On Representations_interieures;
 /*fonction et trigger pour les couts des pièces*/
 CREATE OR REPLACE FUNCTION ajouter_cout( id_p integer,prixx integer, d DATE) RETURNS VOID AS $$
 BEGIN
@@ -160,7 +161,7 @@ DECLARE
   id_p = ajout_unexisting_piece(nom_p,prix_norm,prix_red);
  INSERT INTO Representations(id_piece,date_representation)
     VALUES (id_p,date_rep) RETURNING id_representation INTO id_r;
-  INSERT INTO Representations_interieures(id_representation,nb_place,nb_places_vendues_tarif_normal,nb_places_vendues_tarif_reduit,nb_places_restantes,debut_vente)
+  INSERT INTO Representations_interieures(id_representation,nb_place,nb_places_vendues_tarif_normal,nb_places_vendues_tarif_reduit,nb_places_restante,debut_vente)
   VALUES(id_r,nb_p,DEFAULT,DEFAULT,nb_p,DEFAULT);
   id_t = ajout_unexisting_theatre(t_name,t_ville);
   INSERT INTO Achat(id_representation,id_theatre,date_achat,cout_achat)
@@ -188,7 +189,7 @@ CREATE OR REPLACE FUNCTION check_on_reserv() RETURNS TRIGGER AS $$
 DECLARE
   restante integer;
 BEGIN
-  SELECT nb_places_restantes INTO restante  FROM Representations_interieures WHERE id_representation=New.id_representation;
+  SELECT nb_places_restante INTO restante  FROM Representations_interieures WHERE id_representation=New.id_representation;
   IF (restante>New.nb_places_reservees) THEN
     RETURN NEW;
   ELSE
@@ -199,8 +200,9 @@ BEGIN
 
 CREATE OR REPLACE FUNCTION make_a_reserv() RETURNS TRIGGER AS $$
 BEGIN
-UPDATE Representations_interieures SET nb_places_restantes=nb_places_restantes-NEW.nb_places_reservees
+UPDATE Representations_interieures SET nb_places_restante=nb_places_restante-NEW.nb_places_reservees
  WHERE id_representation=New.id_representation;
+ RETURN NEW;
 END;
  $$ LANGUAGE plpgsql;
 CREATE TRIGGER check_on_reserv BEFORE INSERT ON Reservations
@@ -217,10 +219,10 @@ DECLARE
  nb_places_libres integer;
 BEGIN
 	
- 	 Select nb_places_restantes FROM Representations_interieures WHERE New.id_piece=id_piece;
+ 	 Select nb_places_restante FROM Representations_interieures WHERE New.id_piece=id_piece;
   	IF (nb_places_libres-i) >=0 THEN
   		UPDATE Representations_interieures
-  			SET nb_places_restantes = nb_places_restantes - i
+  			SET nb_places_restante = nb_places_restante - i
   			WHERE id_representation = NEW.id_representation;
   		RETURN NEW;
   	ELSE
@@ -244,7 +246,7 @@ BEGIN
 	 WHERE date_peremption < CURRENT_DATE
     LOOP
     	UPDATE Representations_interieures SET  
-    		nb_places_restantes = (nb_places_restantes+r.nb_places_reservees);
+    		nb_places_restante = (nb_places_restante+r.nb_places_reservees);
     END LOOP;
     DELETE FROM Reservations WHERE date_peremption < CURRENT_DATE;
 END;    
@@ -252,16 +254,12 @@ $$ LANGUAGE plpgsql;
 
 
 /* fonction d'achat */
-CREATE OR REPLACE FUNCTION buy_place() RETURNS TRIGGER AS $$
+
+CREATE OR REPLACE FUNCTION buy_place_before() RETURNS TRIGGER AS $$
 DECLARE
-	prix_red integer;
-	prix_norm integer;
+	date_rep DATE;
 	nb_place_red integer;
 	nb_place_norm integer;
-	recette integer;
-	idp integer;
-	date_rep DATE;
-	cur_month DATE;
 BEGIN
 	EXECUTE delet_reserv_perim();
 	SELECT date_representation INTO date_rep FROM Representations WHERE id_representation=New.id_representation;
@@ -274,39 +272,59 @@ BEGIN
 	END IF;
 
 	nb_place_red = NEW.nb_places_vendues_tarif_reduit-OLD.nb_places_vendues_tarif_reduit;
-		RAISE  notice 'red % ',nb_place_red;
-
 	nb_place_norm=NEW.nb_places_vendues_tarif_normal-OLD.nb_places_vendues_tarif_normal;
 	IF (New.nb_places_restante < (nb_place_red+nb_place_norm)) THEN
 		RETURN NULL;
 	END IF;
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION buy_place() RETURNS TRIGGER AS $$
+DECLARE
+	prix_red integer;
+	prix_norm integer;
+	nb_place_red integer;
+	nb_place_norm integer;
+	recette integer;
+	idp integer;
+	cur_month DATE;
+BEGIN
+
+	nb_place_red = NEW.nb_places_vendues_tarif_reduit-OLD.nb_places_vendues_tarif_reduit;
+
+	nb_place_norm=NEW.nb_places_vendues_tarif_normal-OLD.nb_places_vendues_tarif_normal;
+
 	Select id_piece Into idp  From Representations WHERE id_representation=New.id_representation;
 	SELECT prix_reduit,prix_normal  INTO prix_norm,prix_red FROM Pieces WHERE id_piece =idp;
 	recette = ((nb_place_red*prix_red)+(nb_place_norm*prix_norm));
-	RAISE  notice 'recette % ',recette;
-					RAISE  notice 'prix % ',prix_red;
 
 	IF (New.nb_places_restante<5) THEN
 			SELECT (recette*1.5) INTO recette ;
 	ELSIF (CURRENT_DATE-NEW.debut_vente) < 3 THEN
-		SELECT recette*(80/100) INTO recette ;
-						RAISE  notice 'prix2 % ',recette;
+		SELECT (80*recette)/100 INTO recette ;
 
 	ELSIF (date_rep-CURRENT_DATE)<2 THEN
-		SELECT recette*(70/100) INTO recette ;
+		SELECT (recette*70)/100 INTO recette ;
 	
 	END IF;
 	EXECUTE update_historique_piece_recette(idp,nb_place_red,nb_place_norm,recette);
 
 	EXECUTE update_historique_date_recette(recette);
-RETURN NEW;
+	UPDATE Representations_interieures SET nb_places_restante=nb_places_restante-nb_place_red-nb_place_norm where id_representation= New.id_representation;
+	RAISE notice 'place restante %',New.nb_places_restante;
+	RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER buy_places BEFORE UPDATE ON Representations_interieures
+CREATE TRIGGER buy_places_after AFTER UPDATE ON Representations_interieures
 	FOR EACH ROW
 		WHEN (NEW.nb_places_vendues_tarif_normal > OLD.nb_places_vendues_tarif_normal OR NEW.nb_places_vendues_tarif_reduit > OLD.nb_places_vendues_tarif_reduit)
 		EXECUTE Procedure buy_place();
+
+CREATE TRIGGER buy_places_before BEFORE UPDATE ON Representations_interieures
+	FOR EACH ROW
+		WHEN (NEW.nb_places_vendues_tarif_normal > OLD.nb_places_vendues_tarif_normal OR NEW.nb_places_vendues_tarif_reduit > OLD.nb_places_vendues_tarif_reduit)
+		EXECUTE Procedure buy_place_before();
 
 /* fonction de vente de représentations */
 CREATE OR REPLACE FUNCTION after_selling_fun() RETURNS TRIGGER AS $$
