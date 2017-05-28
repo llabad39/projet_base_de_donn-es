@@ -31,8 +31,9 @@ DROP TRIGGER after_cout ON couts;
 DROP TRIGGER after_selling ON Representations_exterieures;
 DROP TRIGGER buy_places_before On Representations_interieures;
 DROP TRIGGER buy_places_after On Representations_interieures;
-/*fonction et trigger pour les couts des pièces*/
-CREATE OR REPLACE FUNCTION ajouter_cout( id_p integer,prixx integer, d DATE) RETURNS VOID AS $$
+
+/*fonction pour ajouter un cout à une pièce créée à l'interieur*/
+/*CREATE OR REPLACE FUNCTION ajouter_cout( id_p integer,prixx integer, d DATE) RETURNS VOID AS $$
 BEGIN
 PERFORM * FROM Pieces WHERE id_piece=id_p;
       IF NOT FOUND THEN
@@ -48,6 +49,18 @@ PERFORM * FROM Pieces WHERE id_piece=id_p;
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION before_cout_fun() RETURNS TRIGGER AS $$
+BEGIN
+ EXECUTE   ajouter_cout(New.id_piece,New.prix,New.date_cout);
+RETURN New;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER before_cout BEFORE INSERT   ON  Couts
+FOR EACH ROW
+EXECUTE PROCEDURE before_cout_fun();*/
+
+/** Met à jour les depenses par mois de la compagnie ainsi que les depenses d'une pièce après chaque ajout de cout la concerant   */
 CREATE OR REPLACE FUNCTION after_cout_fun() RETURNS TRIGGER AS $$
 BEGIN
 EXECUTE update_historique_piece_depense(New.id_piece,New.prix);
@@ -85,6 +98,7 @@ CREATE OR REPLACE FUNCTION  before_add_subvention_fun() RETURNS TRIGGER AS $$
 BEGIN
      PERFORM * FROM Pieces WHERE id_piece = New.id_piece;
      IF NOT FOUND THEN
+      RAISE 'Pièces innexistante % ', id_piece USING ERRCODE='20002';
      	RETURN NULL;
      END IF;
      PERFORM * FROM Organismes WHERE nom_organisme = New.nom_organisme;
@@ -96,6 +110,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+ /* Après chaque ajout d'une subvention on met à jour l'historique des
+ recettes d'une pièce et celle des recettes du mois courant pour la compagnie*/
 CREATE OR REPLACE FUNCTION after_add_subvention_fun() RETURNS TRIGGER AS $$
 BEGIN
 	EXECUTE update_historique_piece_recette(New.id_piece,0,0,New.valeur_don);
@@ -109,10 +125,12 @@ CREATE TRIGGER after_add_subvention AFTER INSERT ON Subventions
 FOR EACH ROW
 EXECUTE PROCEDURE after_add_subvention_fun();
 
+
 CREATE TRIGGER before_add_subvention BEFORE INSERT ON Subventions
 FOR EACH ROW
 EXECUTE PROCEDURE before_add_subvention_fun();
 
+/* Ajoute un théatre innexistant et retrourne son id */
 CREATE OR REPLACE FUNCTION ajout_unexisting_theatre(nom_t varchar(50),ville_t varchar(50)) RETURNS integer AS $$
   DECLARE
     exist Theatres%rowtype;
@@ -133,6 +151,7 @@ CREATE OR REPLACE FUNCTION ajout_unexisting_theatre(nom_t varchar(50),ville_t va
      END;
 $$ LANGUAGE plpgsql;
 
+/*Ajoute une Pièce innexistante et retourne son id */
 CREATE OR REPLACE FUNCTION ajout_unexisting_piece(nom_p varchar(50), prix_norm integer,prix_red integer) RETURNS integer AS $$
   DECLARE
     id integer;
@@ -150,7 +169,12 @@ BEGIN
      RETURN id;
      END;
 $$ LANGUAGE plpgsql;
-/*fonction et trigger d'achat d'une pièce*/
+
+/*fonction et trigger d'achat d'une pièce
+- ajouter la Representations_interieures
+- ajouter le théatre s'il n'existe pas
+- ajout dans achat la date et le cout de la Representations_interieures
+*/
 
 CREATE OR REPLACE FUNCTION buy_representation(t_name varchar(50),t_ville varchar(50),nom_p varchar(50),prix_norm integer,prix_red integer,nb_p integer,prix_ach integer,date_rep date) RETURNS VOID AS $$
 DECLARE
@@ -169,22 +193,33 @@ DECLARE
      END;
 $$ LANGUAGE plpgsql;
 
+/*Après avoir acheté une représentation d'une piece, ajouter ses frait dans les depenses de la compagnie */
 CREATE OR REPLACE FUNCTION after_buy_representation_fun() RETURNS TRIGGER AS $$
 DECLARE
 id_p integer;
 BEGIN
-	SELECT id_piece Into id_p FROM Representations WHERE id_representation = New.id_representation;
+	SELECT id_piece Into id_p FROM Representations NATURAL JOIN Achats  WHERE id_representation = New.id_representation;
 	IF NOT FOUND THEN
-		RETURN NULL;
+		RAISE 'Pièces innexistante % ', id_p USING ERRCODE='20002';RETURN NULL;
 	ELSE
- 		EXECUTE update_historique_piece_depense(id_p,New.prix);
- 		EXECUTE update_historique_date_depense(New.prix);
+ 		EXECUTE update_historique_piece_depense(id_p,New.cout_achat);
+ 		EXECUTE update_historique_date_depense(New.cout_achat);
  		RETURN NEW;
  	END IF;
 END;
 $$ LANGUAGE plpgsql;
 
-/*fonction de réservation*/
+CREATE TRIGGER after_buy_representation AFTER INSERT ON Achats
+FOR EACH ROW
+EXECUTE PROCEDURE after_buy_representation_fun();
+
+
+
+
+
+
+
+/*verification disponibilité de place pour effectuer une réservation */
 CREATE OR REPLACE FUNCTION check_on_reserv() RETURNS TRIGGER AS $$
 DECLARE
   restante integer;
@@ -193,40 +228,43 @@ BEGIN
   IF (restante>New.nb_places_reservees) THEN
     RETURN NEW;
   ELSE
-    RETURN NULL;
+     RAISE 'Complet '  USING ERRCODE='20002';RETURN NULL;
     END IF;
   END;
  $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION make_a_reserv() RETURNS TRIGGER AS $$
+
+
+
+/* effectuer une réservation*/
+CREATE OR REPLACE FUNCTION make_a_reserv_fun() RETURNS TRIGGER AS $$
 BEGIN
-UPDATE Representations_interieures SET nb_places_restante=nb_places_restante-NEW.nb_places_reservees
- WHERE id_representation=New.id_representation;
- RETURN NEW;
+  UPDATE Representations_interieures SET nb_places_restante=nb_places_restante-NEW.nb_places_reservees
+  WHERE id_representation=New.id_representation;
+  RETURN NEW;
 END;
  $$ LANGUAGE plpgsql;
-CREATE TRIGGER check_on_reserv BEFORE INSERT ON Reservations
-FOR EACH ROW 
-EXECUTE PROCEDURE check_on_reserv();
 
 CREATE TRIGGER make_a_reserv AFTER INSERT ON Reservations
-FOR EACH ROW 
-EXECUTE PROCEDURE make_a_reserv();
+FOR EACH ROW
+EXECUTE PROCEDURE make_a_reserv_fun();
+
+
+
 /*Trigger qui increment le nombre de place disponible pour une prepésentation en fonction des Reservations */
 CREATE OR REPLACE FUNCTION modif_reser() RETURNS TRIGGER AS $$
 DECLARE
  i integer;
  nb_places_libres integer;
 BEGIN
-	
- 	 Select nb_places_restante FROM Representations_interieures WHERE New.id_piece=id_piece;
+  Select nb_places_restante INTO i FROM Representations_interieures WHERE New.id_representation=id_representation;
   	IF (nb_places_libres-i) >=0 THEN
   		UPDATE Representations_interieures
   			SET nb_places_restante = nb_places_restante - i
   			WHERE id_representation = NEW.id_representation;
   		RETURN NEW;
   	ELSE
-  		RETURN NULL;
+  		 RAISE 'Impossible de reserver  % places ',i  USING ERRCODE='20002';RETURN NULL;
   	END IF;
 	END;
 $$ LANGUAGE plpgsql;
@@ -238,6 +276,8 @@ CREATE TRIGGER modif_reservation AFTER UPDATE ON Reservations
  WHEN (NEW.nb_places_reservees  <> OLD.nb_places_reservees)
 EXECUTE PROCEDURE modif_reser();
 
+
+/*suppression des reservations expirées*/
 CREATE OR REPLACE FUNCTION delet_reserv_perim() RETURNS VOID AS $$
 DECLARE
 perim Reservations%rowtype;
@@ -245,15 +285,20 @@ BEGIN
 	FOR perim in SELECT * from Reservations
 	 WHERE date_peremption < CURRENT_DATE
     LOOP
-    	UPDATE Representations_interieures SET  
+    	UPDATE Representations_interieures SET
     		nb_places_restante = (nb_places_restante+r.nb_places_reservees);
     END LOOP;
     DELETE FROM Reservations WHERE date_peremption < CURRENT_DATE;
-END;    
+END;
 $$ LANGUAGE plpgsql;
 
 
-/* fonction d'achat */
+/* fonction d'achat
+commence par supprimer toutes les reservations expirées
+si la représentation est deja passé alors erreur
+on verifi si le nombre de places achetées ne depasse pas le nombre de place disponibles
+
+ */
 
 CREATE OR REPLACE FUNCTION buy_place_before() RETURNS TRIGGER AS $$
 DECLARE
@@ -279,6 +324,9 @@ BEGIN
 	RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+/*politiques tarifaire
+*/
 CREATE OR REPLACE FUNCTION buy_place() RETURNS TRIGGER AS $$
 DECLARE
 	prix_red integer;
@@ -305,7 +353,7 @@ BEGIN
 
 	ELSIF (date_rep-CURRENT_DATE)<2 THEN
 		SELECT (recette*70)/100 INTO recette ;
-	
+
 	END IF;
 	EXECUTE update_historique_piece_recette(idp,nb_place_red,nb_place_norm,recette);
 
@@ -328,13 +376,17 @@ CREATE TRIGGER buy_places_before BEFORE UPDATE ON Representations_interieures
 
 /* fonction de vente de représentations */
 CREATE OR REPLACE FUNCTION after_selling_fun() RETURNS TRIGGER AS $$
+DECLARE
+id_p integer ;
 BEGIN
-EXECUTE update_historique_piece_recette(id_piece,0,0,New.prix);
+Select id_piece Into id_p  From Representations WHERE id_representation=New.id_representation;
+EXECUTE update_historique_piece_recette(id_p,0,0,New.prix);
 EXECUTE update_historique_date_recette(New.prix);
+RETURN New ;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER after_selling AFTER INSERT ON Representations_exterieures
 FOR EACH ROW
 	EXECUTE Procedure after_selling_fun();
-
+  $$ LANGUAGE plpgsql;
