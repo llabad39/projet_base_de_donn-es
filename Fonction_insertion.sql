@@ -219,7 +219,7 @@ DECLARE
  nb_places_libres integer;
 BEGIN
 	
- 	 Select nb_places_restante FROM Representations_interieures WHERE New.id_piece=id_piece;
+ 	 Select nb_places_restante INTO i FROM Representations_interieures WHERE New.id_piece=id_piece;
   	IF (nb_places_libres-i) >=0 THEN
   		UPDATE Representations_interieures
   			SET nb_places_restante = nb_places_restante - i
