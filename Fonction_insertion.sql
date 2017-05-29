@@ -197,7 +197,7 @@ CREATE OR REPLACE FUNCTION after_buy_representation_fun() RETURNS TRIGGER AS $$
 DECLARE
 id_p integer;
 BEGIN
-	SELECT id_piece Into id_p FROM Representations NATURAL JOIN Achats  WHERE id_representation = New.id_representation;
+	SELECT id_piece Into id_p FROM Representations WHERE id_representation = New.id_representation;
 	IF NOT FOUND THEN
 		RAISE 'Pièces innexistante % ', id_p USING ERRCODE='20002';RETURN NULL;
 	ELSE
@@ -244,7 +244,7 @@ BEGIN
         WHERE id_representation = NEW.id_representation;
       RETURN NEW;
     ELSE
-       RAISE 'Impossible de reserver  % places ',i  USING ERRCODE='20002';RETURN NULL;
+       RAISE 'Impossible de reserver  % places ',New.nb_places_reservees  USING ERRCODE='20002';RETURN NULL;
     END IF;
   END;
  $$ LANGUAGE plpgsql;
@@ -273,7 +273,7 @@ BEGIN
         WHERE id_representation = NEW.id_representation;
       RETURN NEW;
     ELSE
-       RAISE 'Impossible de reserver  % places ',i  USING ERRCODE='20002';
+       RAISE 'Impossible de reserver  % places ',New.nb_places_reservees  USING ERRCODE='20002';
        RETURN NULL;
     END IF;
   END;
