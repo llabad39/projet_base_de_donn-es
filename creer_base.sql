@@ -110,5 +110,3 @@ CREATE TABLE HISTORIQUE_PIECE(id_piece integer PRIMARY KEY,
 CREATE TABLE HISTORIQUE_DATE(date_historique DATE PRIMARY KEY,
   recette_mois integer NOT NULL DEFAULT 0,
   depense_mois integer NOT NULL DEFAULT 0);
-
-
