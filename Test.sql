@@ -131,6 +131,14 @@ SELECT * FROM Reservations ;
 \echo 'on paye la reservation'
 Select payer_reservation(10,0,2,1);
 Select * FROM REPRESENTATIONs_Interieures;
+
+\echo 'Requette de recette dans l annee courante: \n';
+SELECT sum(recette_mois)- sum(depense_mois) from HISTORIQUE_DATE where date_trunc ('year',date_historique ) = date_trunc ('year',CURRENT_DATE )   ;
+
+\echo 'nombre de place vendu dans une Representations';
+SELECT nb_places_vendues_tarif_normal + nb_places_vendues_tarif_reduit from Representations_interieures NATURAL JOIN Pieces where
+nom = 'rent' ;
+
 /*
 Insert into Pieces_creees(id_piece,date_creation,nb_acteurs,nb_musiciens) Values(1,getDate(),4,4);
 
