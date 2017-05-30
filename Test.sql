@@ -1,9 +1,10 @@
 \i creer_base.sql;
 \i historique.sql;
 \i Fonction_insertion.sql;
-
+\i Fonction_utile.sql;
 
 \echo 'Quand on insert une nouvelle pièce, elle est automatiquement ajoutée à lhistorique des Pieces\n' ;
+
 INSERT INTO Pieces(nom,prix_normal,prix_reduit) VALUES
 ('rent',20,10),
 ('Les Femmes savantes',80,70),
@@ -19,7 +20,7 @@ Insert Into Organismes(nom_organisme) Values
  SELECT * FROM Organismes ;
 
  Insert Into Representations(id_piece ,date_representation) Values
- (1,CURRENT_DATE);
+ (1,'2017/06/08');
 
   SELECT * FROM Pieces;
   SELECT * FROM Organismes ;
@@ -29,16 +30,16 @@ Insert Into Organismes(nom_organisme) Values
 \echo 'ajouter un cout à une Pieces créée à l exterieur provoque une exception \n';
 
 Insert Into Couts(id_piece,prix ,date_cout ) Values
-(1,100,CURRENT_DATE);
+(1,100,getDate());
 
 \echo 'ajouter un cout  \n';
 INSERT INTO Pieces_creees(id_piece ,date_creation ,nb_acteurs ,nb_musiciens ) VALUES
-(3,CURRENT_DATE,12,15);
+(3,getDate(),12,15);
 
 SELECT * FROM Pieces_creees;
 
 Insert Into Couts(id_piece,prix ,date_cout ) Values
-(3,100,CURRENT_DATE);
+(3,100,getDate());
 
 \echo '\nL ajout d un coût permet de mettre à jour les dépenses de la compagnie pour le mois courantainsi que les dépenses relatives à la pièce concernée.\n';
 \echo 'HISTORIQUE  des depenses et des recettes par Pieces  \n';
@@ -63,7 +64,7 @@ SELECT * FROM HISTORIQUE_PIECE ;
 
 \echo '\n Achat d une pièce (Représentation ) : mise à jour automatique des historiques \n ';
 Insert Into Representations_interieures(id_representation,nb_places,nb_places_vendues_tarif_normal,nb_places_vendues_tarif_reduit,nb_places_restante,debut_vente) Values
-(1,100,DEFAULT,DEFAULT,100,CURRENT_DATE);
+(1,100,DEFAULT,DEFAULT,100,getDate());
 Insert Into Theatres(nom ,ville ) Values ('Théâtre Antoine','Paris');
 
 Insert Into  Achats(  id_representation ,  id_theatre ,  date_achat ,  cout_achat) VALUES
@@ -82,16 +83,18 @@ SELECT * FROM HISTORIQUE_PIECE ;
 \echo '\n  Effectuer une reservation de places fait que le nombre de places libres de la représentation diminut \n';
 Insert Into Clients (  nom ,  prenom ,  email ) Values
 ('Hamaz','belynda','belynda@hotmail.com');
+INSERT Into Clients (nom ,prenom,email) VALUES
+('labadens','lucas','lucaslabadens@hotmail.fr');
 
 Insert Into  Reservations(id_representation ,  id_client ,  nb_places_reservees ,  date_reservation ,  date_peremption ) Values
-(1,1,5, CURRENT_DATE,'2017/06/01')
+(1,1,5, getDate(),'2017/06/01')
 ;
 \echo 'Representations interieures  :\n';
 SELECT * FROM Representations_interieures ;
 
 \echo 'Une modification d une reservation en une reservation Impossible   :\n';
 
-UPDATE Reservations SET nb_places_reservees = 100  WHERE id_client = 1;
+UPDATE Reservations SET nb_places_reservees = nb_places_reservees+100  WHERE id_client = 1;
 \echo 'Representations interieures  :\n';
 SELECT * FROM Representations_interieures ;
 
@@ -108,9 +111,9 @@ SELECT * FROM HISTORIQUE_PIECE ;
 
 \echo 'Vente présentation \n';
 Insert Into Representations(id_piece ,date_representation) Values
-(2,CURRENT_DATE);
-Insert Into Representations_exterieures( id_representation ,  prix ,  date_vente ) Values
-(2 , 8000,CURRENT_DATE);
+(2,getDate());
+Insert Into Representations_exterieures( id_representation , id_theatre, prix ,  date_vente ) Values
+(2 ,1, 8000,getDate());
 \echo 'Representations exterieurs  :\n';
 SELECT * FROM Representations_exterieures;
 \echo 'HISTORIQUE_DATE :\n';
@@ -118,18 +121,26 @@ SELECT * FROM HISTORIQUE_DATE ;
 \echo 'HISTORIQUE_PIECE :\n';
 SELECT * FROM HISTORIQUE_PIECE ;
 
+\echo 'changement de date ';
+UPDATE DATE_COURANTE SET my_date = '2017/06/02' ;
+\echo 'on fais une fais une nouvelle reservation les reservation périmées vont disparaitre'
+Insert Into Reservations(id_representation ,  id_client ,  nb_places_reservees ,  date_reservation ,  date_peremption ) VALUES(1,2,10,getDate(),'2017/06/05');
 
+SELECT * FROM Reservations ;
 
+\echo 'on paye la reservation'
+Select payer_reservation(10,0,2,1);
+Select * FROM REPRESENTATIONs_Interieures;
 /*
-Insert into Pieces_creees(id_piece,date_creation,nb_acteurs,nb_musiciens) Values(1,CURRENT_DATE,4,4);
+Insert into Pieces_creees(id_piece,date_creation,nb_acteurs,nb_musiciens) Values(1,getDate(),4,4);
 
 Insert Into Representations(id_piece,date_representation) Values(1,'2017-08-06');
 
-Insert Into Representations_interieures(id_representation,nb_places,nb_places_vendues_tarif_normal,nb_places_vendues_tarif_reduit,nb_places_restante,debut_vente) Values(1,100,DEFAULT,DEFAULT,100,CURRENT_DATE);
+Insert Into Representations_interieures(id_representation,nb_places,nb_places_vendues_tarif_normal,nb_places_vendues_tarif_reduit,nb_places_restante,debut_vente) Values(1,100,DEFAULT,DEFAULT,100,getDate());
 
 Insert Into Couts(id_piece,prix,date_cout) Values(1,150,DEFAULT);
 
-insert into Subventions(nom_organisme,id_piece,date_subvention,valeur_don) VALUES ('mairie de paris',1,CURRENT_DATE,100);
+insert into Subventions(nom_organisme,id_piece,date_subvention,valeur_don) VALUES ('mairie de paris',1,getDate(),100);
 
 UPDATE REPRESENTATIONs_Interieures Set nb_places_vendues_tarif_reduit=4;
 

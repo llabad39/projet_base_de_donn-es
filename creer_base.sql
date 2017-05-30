@@ -12,7 +12,7 @@ DROP TABLE IF EXISTS Reservations CASCADE;
 DROP TABLE IF EXISTS Clients CASCADE;
 DROP TABLE IF EXISTS HISTORIQUE_PIECE CASCADE;
 DROP TABLE IF EXISTS HISTORIQUE_DATE CASCADE;
-
+DROP TABLE IF EXISTS DATE_COURANTE;
 
 CREATE TABLE Organismes (
     nom_organisme varchar (50) PRIMARY KEY
@@ -55,18 +55,19 @@ CREATE TABLE Representations (
     date_representation  DATE NOT NULL
 );
 
-CREATE TABLE Representations_exterieures (
-  id_representation integer PRIMARY KEY REFERENCES Representations (id_representation),
-  prix integer NOT NULL,
-  date_vente  DATE NOT NULL DEFAULT CURRENT_DATE
-);
+
 
 CREATE TABLE Theatres (
   id_theatre serial PRIMARY KEY ,
   nom varchar (100) NOT NULL,
   ville varchar (100) NOT NULL
 );
-
+CREATE TABLE Representations_exterieures (
+  id_representation integer PRIMARY KEY REFERENCES Representations (id_representation),
+  id_theatre integer REFERENCES Theatres (id_theatre),
+  prix integer NOT NULL,
+  date_vente  DATE NOT NULL DEFAULT CURRENT_DATE
+);
 CREATE TABLE Representations_interieures (
   id_representation integer PRIMARY KEY REFERENCES Representations (id_representation),
   nb_places integer  NOT NULL check(nb_places >= 0),
@@ -96,7 +97,7 @@ CREATE TABLE Reservations(
   id_representation integer REFERENCES Representations_interieures (id_representation),
   id_client integer REFERENCES Clients (id_client),
   nb_places_reservees integer NOT NULL check(nb_places_reservees > 0),
-  date_reservation DATE  check(date_reservation =  CURRENT_DATE),
+  date_reservation DATE ,
   date_peremption DATE check(date_peremption>= date_reservation),
   PRIMARY KEY (id_representation, id_client)
 );
@@ -110,3 +111,7 @@ CREATE TABLE HISTORIQUE_PIECE(id_piece integer PRIMARY KEY,
 CREATE TABLE HISTORIQUE_DATE(date_historique DATE PRIMARY KEY,
   recette_mois integer NOT NULL DEFAULT 0,
   depense_mois integer NOT NULL DEFAULT 0);
+
+CREATE TABLE DATE_COURANTE(my_date date);
+
+INSERT INTO DATE_COURANTE(my_date) VALUES (CURRENT_DATE);

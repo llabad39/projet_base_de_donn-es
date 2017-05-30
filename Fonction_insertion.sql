@@ -220,14 +220,16 @@ EXECUTE PROCEDURE after_buy_representation_fun();
 CREATE OR REPLACE FUNCTION delet_reserv_perim() RETURNS VOID AS $$
 DECLARE
 perim Reservations%rowtype;
+cur_d date;
 BEGIN
+  SELECT * Into cur_d FROM DATE_COURANTE;
   FOR perim in SELECT * from Reservations
-   WHERE date_peremption < CURRENT_DATE
+   WHERE date_peremption < cur_d
     LOOP
       UPDATE Representations_interieures SET
-        nb_places_restante = (nb_places_restante+r.nb_places_reservees);
+        nb_places_restante = (nb_places_restante+perim.nb_places_reservees);
     END LOOP;
-    DELETE FROM Reservations WHERE date_peremption < CURRENT_DATE;
+    DELETE FROM Reservations WHERE date_peremption < cur_d;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -260,8 +262,10 @@ CREATE OR REPLACE FUNCTION modif_reser() RETURNS TRIGGER AS $$
 DECLARE
  i integer;
  nb_places_libres integer;
+cur_d date;
 BEGIN
-  IF New.date_peremption < CURRENT_DATE THEN
+  SELECT * Into cur_d FROM DATE_COURANTE;
+  IF New.date_peremption < cur_d THEN
     RETURN NULL;
   END IF;
   EXECUTE delet_reserv_perim();
@@ -297,11 +301,12 @@ DECLARE
 	date_rep DATE;
 	nb_place_red integer;
 	nb_place_norm integer;
+  cur_d DATE;
 BEGIN
 	EXECUTE delet_reserv_perim();
 	SELECT date_representation INTO date_rep FROM Representations WHERE id_representation=New.id_representation;
-
-	IF date_rep < CURRENT_DATE THEN
+  SELECT * Into cur_d FROM DATE_COURANTE;
+	IF date_rep < cur_d THEN
 		RETURN NULL;
 	END IF;
 	IF OLD.nb_places_vendues_tarif_reduit > NEW.nb_places_vendues_tarif_reduit OR OLD.nb_places_vendues_tarif_normal > NEW.nb_places_vendues_tarif_normal THEN
@@ -328,8 +333,11 @@ DECLARE
 	recette integer;
 	idp integer;
 	cur_month DATE;
+  date_rep DATE;
+cur_d date;
 BEGIN
-
+  SELECT * Into cur_d FROM DATE_COURANTE;
+  SELECT date_representation Into date_rep FROM Representations WHERE id_representation=New.id_representation;
 	nb_place_red = NEW.nb_places_vendues_tarif_reduit-OLD.nb_places_vendues_tarif_reduit;
 
 	nb_place_norm=NEW.nb_places_vendues_tarif_normal-OLD.nb_places_vendues_tarif_normal;
@@ -340,18 +348,17 @@ BEGIN
 
 	IF (New.nb_places_restante<5) THEN
 			SELECT (recette*1.5) INTO recette ;
-	ELSIF (CURRENT_DATE-NEW.debut_vente) < 3 THEN
+	ELSIF (cur_d-NEW.debut_vente) < 3 THEN
 		SELECT (80*recette)/100 INTO recette ;
 
-	ELSIF (date_rep-CURRENT_DATE)<2 THEN
+	ELSIF (date_rep-cur_d)<2 THEN
 		SELECT (recette*70)/100 INTO recette ;
 
 	END IF;
 	EXECUTE update_historique_piece_recette(idp,nb_place_red,nb_place_norm,recette);
 
-	EXECUTE update_historique_date_recette(recette,CURRENT_DATE);
+	EXECUTE update_historique_date_recette(recette,cur_d);
 	UPDATE Representations_interieures SET nb_places_restante=nb_places_restante-nb_place_red-nb_place_norm where id_representation= New.id_representation;
-	RAISE notice 'place restante %',New.nb_places_restante;
 	RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
